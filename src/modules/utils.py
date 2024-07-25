@@ -6,11 +6,15 @@ from typing import Dict, Any, Callable
 
 def method_delay(func: Callable) -> Callable:
     def wrapper(*args, **kwargs):
-        time.sleep(3)
+        time.sleep(2)
         func(*args, **kwargs)
-        time.sleep(3)
+        time.sleep(2)
 
     return wrapper
+
+
+def delay(seconds: [int, float] = 3) -> None:
+    time.sleep(seconds)
 
 
 def get_phrases_amount(search_phrase: str, article: Dict[str, Any]) -> int:

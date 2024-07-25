@@ -1,5 +1,6 @@
 import logging
 import os.path
+import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 from urllib.request import urlretrieve
@@ -109,6 +110,8 @@ class BaseNewsScraper(ABC):
             'Scraper must implement method filter_by_category() if category filter is available and category provided')
 
     def parse_page(self) -> None:
+        utils.delay()
+
         article_elements = self.find_articles()
 
         for article_element in article_elements:
