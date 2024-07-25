@@ -1,10 +1,12 @@
 import logging
 import os.path
 from abc import ABC, abstractmethod
+from typing import Any, Dict, List
 from urllib.request import urlretrieve
 
 from RPA.Browser.Selenium import Selenium
 from RPA.Excel.Files import Files
+from selenium.webdriver.remote.webelement import WebElement
 
 from src.modules import utils
 
@@ -65,10 +67,12 @@ class BaseNewsScraper(ABC):
 
         LOGGER.info(f'Sorting results (Newest first)')
         self.sort_results_by_date()
+        LOGGER.info(f'Results sorted!')
 
         if self.category is not None and self.has_category_filter:
             LOGGER.info(f'Filtering results by category "{self.category}"')
             self.filter_by_category()
+            LOGGER.info(f'Results filtered!')
 
         LOGGER.info(f'Collecting articles')
         self.parse_page()
@@ -78,7 +82,7 @@ class BaseNewsScraper(ABC):
         self.save_articles_to_excel()
 
     @staticmethod
-    def create_dirs_if_not_exist():
+    def create_dirs_if_not_exist() -> None:
         if not os.path.exists(OUTPUT_DIR):
             LOGGER.info(f'{OUTPUT_DIR} does not exist. Creating output directory...')
             os.mkdir(OUTPUT_DIR)
@@ -104,7 +108,7 @@ class BaseNewsScraper(ABC):
         raise NotImplementedError(
             'Scraper must implement method filter_by_category() if category filter is available and category provided')
 
-    def parse_page(self):
+    def parse_page(self) -> None:
         article_elements = self.find_articles()
 
         for article_element in article_elements:
@@ -121,23 +125,22 @@ class BaseNewsScraper(ABC):
             self.parse_page()
 
     @abstractmethod
-    def find_articles(self) -> list:
+    def find_articles(self) -> List[WebElement]:
         raise NotImplementedError
 
     @staticmethod
     @abstractmethod
-    def scrape_article_data(article):
+    def scrape_article_data(article: WebElement) -> Dict[str, Any]:
         raise NotImplementedError
 
-    def process_article_data(self, article_data):
+    def process_article_data(self, article_data: Dict[str, Any]) -> Dict[str, Any]:
         article_data['phrases_amount'] = utils.get_phrases_amount(self.search_phrase, article_data)
         article_data['contains_money'] = utils.check_money_noted(article_data)
         self.download_picture(article_data)
-
         return article_data
 
     @staticmethod
-    def download_picture(article_data):
+    def download_picture(article_data: Dict[str, Any]) -> None:
         picture_url = article_data['picture']
 
         picture_filename = f"{article_data['title'].lower().replace(' ', '_')}.{picture_url.split('.')[-1]}"
@@ -153,28 +156,28 @@ class BaseNewsScraper(ABC):
 
     @utils.method_delay
     @abstractmethod
-    def paginate(self):
+    def paginate(self) -> None:
         pass
 
     @property
     @abstractmethod
-    def start_url(self):
+    def start_url(self) -> str:
         pass
 
     @property
     @abstractmethod
-    def scraper_name(self):
+    def scraper_name(self) -> str:
         pass
 
     @utils.method_delay
-    def click(self, xpath):
+    def click(self, xpath: str) -> None:
         self.driver.click_element(xpath)
 
     @utils.method_delay
-    def fill(self, xpath, text):
+    def fill(self, xpath: str, text: str) -> None:
         self.driver.input_text(xpath, text)
 
-    def save_articles_to_excel(self):
+    def save_articles_to_excel(self) -> None:
         lib = Files()
         lib.create_workbook(path=f"../output/{self.scraper_name}.xlsx", fmt="xlsx")
 

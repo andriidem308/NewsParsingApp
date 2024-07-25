@@ -1,3 +1,5 @@
+from typing import List
+
 from selenium.webdriver.common.by import By
 
 from src.base_news_scraper import BaseNewsScraper
@@ -32,13 +34,12 @@ class LATimesScraper(BaseNewsScraper):
 
             if category_name.text.lower() == self.category.lower():
                 category_input.click()
-                print(f'Filtered by category: {self.category}')
                 break
 
     def find_articles(self):
         return self.driver.find_elements('//ul[@class="search-results-module-results-menu"]/li')
 
-    def scrape_article_data(self, article) -> dict:
+    def scrape_article_data(self, article):
         title = article.find_element(By.XPATH, './/h3[@class="promo-title"]').text
         timestamp = article.find_element(By.XPATH, './/p[@class="promo-timestamp"]').get_attribute('data-timestamp')
         description = article.find_element(By.XPATH, './/p[@class="promo-description"]').text
