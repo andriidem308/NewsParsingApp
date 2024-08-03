@@ -1,0 +1,9 @@
+[
+    {
+        "payload": {
+            "search_phrase": "coronavirus",
+            "last_n_months": 3,
+            "category": "California"
+        }
+    }
+]
