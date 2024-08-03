@@ -27,11 +27,11 @@ def timestamp_to_date(timestamp: float) -> datetime.date:
     return datetime.datetime.fromtimestamp(timestamp).date()
 
 
-def check_money_noted(article: Dict[str, Any]) -> bool:
+def check_money_noted(article: Dict[str, Any]) -> int:
     money_regex = r'\$[\d,]+(\.\d+)?|\d+\s(dollars|USD)'
     money_noted_in_title = bool(re.search(money_regex, article['title']))
     money_noted_in_description = bool(re.search(money_regex, article['description']))
-    return money_noted_in_title or money_noted_in_description
+    return 1 if money_noted_in_title or money_noted_in_description else 0
 
 
 def get_oldest_date(last_n_months: int = 0) -> datetime.date:

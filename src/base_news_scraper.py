@@ -7,35 +7,21 @@ from urllib.request import urlretrieve
 
 from RPA.Browser.Selenium import Selenium
 from RPA.Excel.Files import Files
+from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 from src.modules import utils
 
-LOGGER = logging.getLogger('rpa_scraper_logger')
 
-OUTPUT_DIR = '../output'
+OUTPUT_DIR = 'output/'
 PICTURES_DIR = os.path.join(OUTPUT_DIR, 'pictures')
 
 EXCEL_HEADERS = ["title", "date", "description", "picture", "phrases_amount", "contains_money"]
 
 
 class BaseNewsScraper(ABC):
-    browser_options = {
-        'use_profile': False,
-        'headless': 'AUTO',
-        'maximized': False,
-        'browser_selection': 'AUTO',
-        'alias': None,
-        'profile_name': None,
-        'profile_path': None,
-        'preferences': None,
-        'proxy': None,
-        'user_agent': None,
-        'download': 'AUTO',
-        'options': None,
-        'port': None,
-        'sandbox': False,
-    }
 
     has_pagination = False
     has_category_filter = False
@@ -54,45 +40,46 @@ class BaseNewsScraper(ABC):
 
         self.articles = []
 
+        self.logger = logging.getLogger(__name__)
+
     def execute(self) -> None:
         self.create_dirs_if_not_exist()
 
-        self.driver.open_available_browser(**self.browser_options)
+        self.driver.open_available_browser()
         self.driver.set_window_size(self.viewport_x, self.viewport_y)
 
         self.driver.go_to(self.start_url)
-        LOGGER.info(f'Start page {self.start_url} opened')
+        self.logger.info(f'Start page {self.start_url} opened')
 
-        LOGGER.info(f'Start searching articles via search input')
+        self.logger.info(f'Start searching articles via search input')
         self.search()
 
-        LOGGER.info(f'Sorting results (Newest first)')
+        self.logger.info(f'Sorting results (Newest first)')
         self.sort_results_by_date()
-        LOGGER.info(f'Results sorted!')
+        self.logger.info(f'Results sorted!')
 
         if self.category is not None and self.has_category_filter:
-            LOGGER.info(f'Filtering results by category "{self.category}"')
+            self.logger.info(f'Filtering results by category "{self.category}"')
             self.filter_by_category()
-            LOGGER.info(f'Results filtered!')
+            self.logger.info(f'Results filtered!')
 
-        LOGGER.info(f'Collecting articles')
+        self.logger.info(f'Collecting articles')
         self.parse_page()
-        LOGGER.info(f'Articles collected!')
+        self.logger.info(f'Articles collected!')
 
-        LOGGER.info(f'Trying to save results to the excel file')
+        self.logger.info(f'Trying to save results to the excel file')
         self.save_articles_to_excel()
 
-    @staticmethod
-    def create_dirs_if_not_exist() -> None:
+    def create_dirs_if_not_exist(self) -> None:
         if not os.path.exists(OUTPUT_DIR):
-            LOGGER.info(f'{OUTPUT_DIR} does not exist. Creating output directory...')
+            self.logger.info(f'{OUTPUT_DIR} does not exist. Creating output directory...')
             os.mkdir(OUTPUT_DIR)
-            LOGGER.info(f'Output directory created')
+            self.logger.info(f'Output directory created')
 
         if not os.path.exists(PICTURES_DIR):
-            LOGGER.info(f'{PICTURES_DIR} does not exist. Creating pictures directory...')
+            self.logger.info(f'{PICTURES_DIR} does not exist. Creating pictures directory...')
             os.mkdir(PICTURES_DIR)
-            LOGGER.info(f'Pictures directory created')
+            self.logger.info(f'Pictures directory created')
 
     @utils.method_delay
     @abstractmethod
@@ -127,6 +114,26 @@ class BaseNewsScraper(ABC):
             self.paginate()
             self.parse_page()
 
+    def wait_for_element_clickable(self, selector, selector_type='xpath'):
+        element = WebDriverWait(self.driver.driver, 10).until(
+                EC.element_to_be_clickable((self.get_selector_type(selector_type), selector)))
+        return element
+
+    @staticmethod
+    def get_selector_type(selector_type):
+        match selector_type:
+            case 'xpath':
+                result = By.XPATH
+            case 'css':
+                result = By.CSS_SELECTOR
+            case 'class_name':
+                result = By.CLASS_NAME
+            case 'id':
+                result = By.ID
+            case _:
+                raise ValueError(f'Invalid selector type: {selector_type}')
+        return result
+
     @abstractmethod
     def find_articles(self) -> List[WebElement]:
         raise NotImplementedError
@@ -142,8 +149,7 @@ class BaseNewsScraper(ABC):
         self.download_picture(article_data)
         return article_data
 
-    @staticmethod
-    def download_picture(article_data: Dict[str, Any]) -> None:
+    def download_picture(self, article_data: Dict[str, Any]) -> None:
         picture_url = article_data['picture']
 
         picture_filename = f"{article_data['title'].lower().replace(' ', '_')}.{picture_url.split('.')[-1]}"
@@ -152,10 +158,10 @@ class BaseNewsScraper(ABC):
 
         try:
             urlretrieve(picture_url, picture_filepath)
-            LOGGER.info(f'Picture {picture_filename} downloaded successfully')
+            self.logger.info(f'Picture {picture_filename} downloaded successfully')
             article_data['picture'] = picture_filename
         except ValueError:
-            LOGGER.info(f"Picture can't be downloaded via URI {picture_url}")
+            self.logger.info(f"Picture can't be downloaded via URI {picture_url}")
 
     @utils.method_delay
     @abstractmethod
@@ -172,9 +178,9 @@ class BaseNewsScraper(ABC):
     def scraper_name(self) -> str:
         pass
 
-    @utils.method_delay
     def click(self, xpath: str) -> None:
-        self.driver.click_element(xpath)
+        element = self.wait_for_element_clickable(xpath)
+        element.click()
 
     @utils.method_delay
     def fill(self, xpath: str, text: str) -> None:
@@ -182,9 +188,10 @@ class BaseNewsScraper(ABC):
 
     def save_articles_to_excel(self) -> None:
         lib = Files()
-        lib.create_workbook(path=f"../output/{self.scraper_name}.xlsx", fmt="xlsx")
+        lib.create_workbook(path=f"output/{self.scraper_name}.xlsx", fmt="xlsx")
 
-        articles_data = [[article[key] for key in EXCEL_HEADERS] for article in self.articles]
-        lib.append_rows_to_worksheet([EXCEL_HEADERS] + articles_data, header=True)
-
+        lib.append_rows_to_worksheet([EXCEL_HEADERS], start=1)
+        for article_data in self.articles:
+            lib.append_rows_to_worksheet(article_data)
+        lib.auto_size_columns("A", "F", width=16)
         lib.save_workbook()
