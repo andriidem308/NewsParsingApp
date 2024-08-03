@@ -42,5 +42,5 @@ def get_oldest_date(last_n_months: int = 0) -> datetime.date:
     elif last_n_months == 0:
         last_n_months = 1
 
-    oldest_date = (datetime.datetime.now() - datetime.timedelta(days=1 * last_n_months - 1)).date()
+    oldest_date = (datetime.datetime.now() - datetime.timedelta(days=30 * last_n_months - 1)).date()
     return oldest_date
